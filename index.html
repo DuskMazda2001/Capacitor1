@@ -1,19 +1,168 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Capacitor Selector</title>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pulsed-Power Capacitor Bank Specifier</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; max-width: 980px; margin: 0 auto; }
+    h1 { margin-bottom: 8px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+    label { font-size: 12px; color: #333; }
+    input, select { width: 100%; padding: 8px; box-sizing: border-box; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; }
+    button { padding: 10px 14px; cursor: pointer; }
+    pre { background: #f6f8fa; padding: 12px; overflow: auto; white-space: pre-wrap; }
+    .note { font-size: 12px; color: #555; }
+    .panel { border: 1px solid #e5e7eb; padding: 12px; border-radius: 8px; }
+  </style>
 </head>
-<body style="font-family: Arial; padding: 20px;">
-  <h1>Capacitor Selector (MVP)</h1>
+<body>
+  <h1>Capacitor Bank Specifier (MVP)</h1>
+  <div class="note">
+    Inputs → RLC-derived bank targets → spec sheet (browser version of your MATLAB tool).
+  </div>
+  <br/>
 
-  <button onclick="loadCaps()">Load Capacitors</button>
+  <div class="panel">
+    <div class="grid">
+      <div>
+        <label>Purpose</label>
+        <select id="purpose" onchange="applyTemplate()">
+          <option value="1">Capacitor discharge welding (CDW)</option>
+          <option value="2">Electromagnetic forming / crimping</option>
+          <option value="3">Railgun / coilgun launcher</option>
+          <option value="4">Magnet pulser / solenoid drive</option>
+          <option value="5">Flashlamp / laser pumping</option>
+          <option value="6">X-ray / radiographic pulser</option>
+          <option value="7">Marx generator / HPM / PFN</option>
+          <option value="8">Medical imaging pulse (CT / MRI gradient)</option>
+          <option value="9">Generic capacitor discharge into R/L load</option>
+        </select>
+      </div>
 
-  <pre id="output">Click the button to load data</pre>
+      <div>
+        <label>Environment</label>
+        <select id="environment">
+          <option value="lab_clean">Clean lab / controlled</option>
+          <option value="industrial">Industrial indoor</option>
+          <option value="outdoor">Outdoor / very dirty / humid</option>
+        </select>
+      </div>
+
+      <div>
+        <label>Charge voltage V0 (V)</label>
+        <input id="V_charge" type="number" step="any" />
+      </div>
+
+      <div>
+        <label>Equivalent inductance L_eq (H)</label>
+        <input id="L_eq" type="number" step="any" />
+      </div>
+
+      <div>
+        <label>Equivalent resistance R_eq (Ω)</label>
+        <input id="R_eq" type="number" step="any" />
+      </div>
+
+      <div>
+        <label>Desired time to first current peak t_peak (s)</label>
+        <input id="pulse_width" type="number" step="any" />
+      </div>
+
+      <div>
+        <label>Required pulse energy (J) (optional)</label>
+        <input id="E_pulse_required" type="number" step="any" placeholder="Leave blank if not specified" />
+      </div>
+
+      <div>
+        <label>Repetition rate (Hz)</label>
+        <input id="rep_rate" type="number" step="any" />
+      </div>
+
+      <div>
+        <label>Required life (shots)</label>
+        <input id="life_shots" type="number" step="any" />
+      </div>
+
+      <div>
+        <label>Supply / generator frequency (Hz)</label>
+        <input id="f_supply" type="number" step="any" />
+      </div>
+
+      <div>
+        <label>Min clearance HV→structure (mm)</label>
+        <input id="d_min_mm" type="number" step="any" />
+      </div>
+
+      <div>
+        <label>Switch type</label>
+        <select id="switch_type">
+          <option value="spark_gap">Spark gap / railgap</option>
+          <option value="thyratron">Thyratron / ignitron</option>
+          <option value="IGBT_stack">IGBT stack</option>
+          <option value="MOSFET_stack">MOSFET stack</option>
+          <option value="GTO_stack">GTO / thyristor stack</option>
+        </select>
+      </div>
+
+      <div>
+        <label>Allowed reverse voltage (% of V0)</label>
+        <input id="rev_percent" type="number" step="any" />
+      </div>
+
+      <div>
+        <label>Voltage safety factor</label>
+        <input id="safV" type="number" step="any" />
+      </div>
+
+      <div>
+        <label>Energy safety factor</label>
+        <input id="safE" type="number" step="any" />
+      </div>
+
+      <div>
+        <label>Max fraction of total inductance allowed in bank (%)</label>
+        <input id="L_bank_frac_percent" type="number" step="any" />
+      </div>
+
+      <div>
+        <label>Minimum acceptable pulse efficiency to load (%)</label>
+        <input id="eta_min_percent" type="number" step="any" />
+      </div>
+
+      <div>
+        <label>Max allowed di/dt at switch (A/µs) (0 = no limit)</label>
+        <input id="di_dt_max_Aus" type="number" step="any" />
+      </div>
+    </div>
+
+    <br/>
+    <div class="row">
+      <button onclick="run()">Compute spec sheet</button>
+      <button onclick="applyTemplate()">Reset to purpose defaults</button>
+      <button onclick="loadCaps()">Load capacitors (Supabase)</button>
+    </div>
+  </div>
+
+  <br/>
+  <div class="panel">
+    <h3 style="margin-top:0;">Spec sheet output</h3>
+    <pre id="out">Choose a purpose and click “Compute spec sheet”.</pre>
+  </div>
+
+  <br/>
+  <div class="panel">
+    <h3 style="margin-top:0;">Capacitor database (Supabase)</h3>
+    <pre id="capsOut">Click “Load capacitors (Supabase)”.</pre>
+  </div>
 
   <script>
+    // =========================
+    // Supabase (your working URL + key)
+    // =========================
     const SUPABASE_URL = "https://xdjywcohdnhgnmplbdzc.supabase.co";
-    const SUPABASE_KEY = "sb_publishable_84V1a55K4KXpDrusgTA_mA_eISC9Jn0";
+    const SUPABASE_KEY = "PASTE_YOUR_PUBLISHABLE_KEY_HERE";
 
     async function loadCaps() {
       const res = await fetch(
@@ -27,9 +176,344 @@
       );
 
       const data = await res.json();
-      document.getElementById("output").textContent =
-        JSON.stringify(data, null, 2);
+      document.getElementById("capsOut").textContent = JSON.stringify(data, null, 2);
     }
+
+    // --------------------------
+    // Templates (like purposeTemplate in MATLAB)
+    // --------------------------
+    function purposeTemplate(choice) {
+      let t = {};
+      switch (Number(choice)) {
+        case 1:
+          t = { purpose: 'Capacitor discharge welding', V_charge: 1000, L_eq: 2e-6, R_eq: 2e-3, pulse_width: 200e-6, E_pulse: 500, rep_rate: 1, life_shots: 1e5, switch_type: 'spark_gap', f_supply: 50, d_min_mm: 20 };
+          break;
+        case 2:
+          t = { purpose: 'Electromagnetic forming', V_charge: 4000, L_eq: 5e-6, R_eq: 3e-3, pulse_width: 100e-6, E_pulse: 2000, rep_rate: 0.2, life_shots: 5e4, switch_type: 'spark_gap', f_supply: 50, d_min_mm: 30 };
+          break;
+        case 3:
+          t = { purpose: 'Railgun / coilgun launcher', V_charge: 5000, L_eq: 50e-6, R_eq: 5e-3, pulse_width: 2e-3, E_pulse: 5e3, rep_rate: 0.1, life_shots: 1e4, switch_type: 'spark_gap', f_supply: 50, d_min_mm: 50 };
+          break;
+        case 4:
+          t = { purpose: 'Magnet pulser', V_charge: 2000, L_eq: 200e-6, R_eq: 0.1, pulse_width: 10e-3, E_pulse: 1000, rep_rate: 1, life_shots: 1e5, switch_type: 'IGBT_stack', f_supply: 50, d_min_mm: 30 };
+          break;
+        case 5:
+          t = { purpose: 'Flashlamp laser pumping', V_charge: 1000, L_eq: 10e-6, R_eq: 0.05, pulse_width: 500e-6, E_pulse: 1000, rep_rate: 10, life_shots: 1e6, switch_type: 'thyratron', f_supply: 50, d_min_mm: 20 };
+          break;
+        case 6:
+          t = { purpose: 'X-ray pulser', V_charge: 3000, L_eq: 5e-6, R_eq: 1e-2, pulse_width: 100e-9, E_pulse: 500, rep_rate: 50, life_shots: 1e6, switch_type: 'spark_gap', f_supply: 50, d_min_mm: 30 };
+          break;
+        case 7:
+          t = { purpose: 'Marx / HPM pulser', V_charge: 20000, L_eq: 100e-9, R_eq: 5, pulse_width: 50e-9, E_pulse: 100, rep_rate: 10, life_shots: 1e7, switch_type: 'spark_gap', f_supply: 50, d_min_mm: 80 };
+          break;
+        case 8:
+          t = { purpose: 'Medical imaging pulser', V_charge: 2000, L_eq: 1e-3, R_eq: 0.2, pulse_width: 5e-3, E_pulse: 500, rep_rate: 50, life_shots: 1e7, switch_type: 'IGBT_stack', f_supply: 50, d_min_mm: 30 };
+          break;
+        default:
+          t = { purpose: 'Generic pulsed power', V_charge: 1000, L_eq: 10e-6, R_eq: 0.01, pulse_width: 1e-3, E_pulse: 500, rep_rate: 1, life_shots: 1e5, switch_type: 'spark_gap', f_supply: 50, d_min_mm: 20 };
+      }
+      t.safV = 0.8;
+      t.safE = 0.9;
+      t.revFrac = 0.10;
+      t.env = 'lab_clean';
+      t.L_bank_frac_percent = 20;
+      t.eta_min_percent = 90;
+      t.di_dt_max_Aus = 0;
+      return t;
+    }
+
+    function setVal(id, v) {
+      const el = document.getElementById(id);
+      if (el) el.value = (v ?? '');
+    }
+    function getNum(id) {
+      const v = document.getElementById(id).value;
+      if (v === '' || v === null || v === undefined) return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    }
+    function getStr(id) {
+      return document.getElementById(id).value;
+    }
+
+    function applyTemplate() {
+      const t = purposeTemplate(getStr('purpose'));
+      setVal('V_charge', t.V_charge);
+      setVal('L_eq', t.L_eq);
+      setVal('R_eq', t.R_eq);
+      setVal('pulse_width', t.pulse_width);
+      setVal('E_pulse_required', t.E_pulse);
+      setVal('rep_rate', t.rep_rate);
+      setVal('life_shots', t.life_shots);
+      setVal('f_supply', t.f_supply);
+      setVal('d_min_mm', t.d_min_mm);
+      document.getElementById('switch_type').value = t.switch_type;
+      document.getElementById('environment').value = t.env;
+      setVal('rev_percent', t.revFrac * 100);
+      setVal('safV', t.safV);
+      setVal('safE', t.safE);
+      setVal('L_bank_frac_percent', t.L_bank_frac_percent);
+      setVal('eta_min_percent', t.eta_min_percent);
+      setVal('di_dt_max_Aus', t.di_dt_max_Aus);
+    }
+
+    // --------------------------
+    // Core physics (computeBankSpecs in MATLAB)
+    // --------------------------
+    function computeBankSpecs(req) {
+      const L  = req.L_eq;
+      const R  = req.R_eq;
+      const V0 = req.V_charge;
+      const t_peak_target = req.pulse_width;
+
+      const C_time = 4 * L * t_peak_target * t_peak_target / (Math.PI*Math.PI*L*L + R*R*t_peak_target*t_peak_target);
+
+      let C_eq = C_time;
+      if (req.E_pulse_required !== null) {
+        const C_energy = 2 * req.E_pulse_required / (V0*V0);
+        C_eq = Math.max(C_time, C_energy);
+      }
+
+      const omega0 = 1 / Math.sqrt(L*C_eq);
+      const alpha  = R/(2*L);
+      const zeta   = alpha/omega0;
+
+      let omegad = NaN, t_peak_calc = NaN, rev_factor = NaN, V_rev_mag = NaN;
+      if (zeta < 1) {
+        omegad = omega0 * Math.sqrt(1 - zeta*zeta);
+        t_peak_calc = Math.PI/(2*omegad);
+        const denom = Math.sqrt(Math.max(1 - zeta*zeta, 1e-9));
+        rev_factor = Math.exp(-zeta*Math.PI/denom);
+        V_rev_mag = V0 * rev_factor;
+      }
+
+      const Z0 = Math.sqrt(L/C_eq);
+      const I_peak = V0 / Z0;
+
+      const E_stored = 0.5*C_eq*V0*V0;
+      const V_forward_min = V0 / req.safety_factor_voltage;
+      const V_reverse_max = req.rev_frac_allowed * V0;
+
+      const reverse_ok = (Number.isFinite(V_rev_mag) ? (V_rev_mag <= V_reverse_max) : true);
+
+      const L_bank_max = req.L_bank_frac_max * L;
+      const eta_min = req.eta_min;
+      let R_bank_max = (1 - eta_min) * R;
+      R_bank_max = Math.max(0, R_bank_max);
+
+      const di_dt_initial = V0 / L;
+
+      const specs = {
+        C_eq, E_stored, omega0, alpha, zeta, omegad, t_peak_calc,
+        rev_factor, V_rev_mag, Z0, I_peak,
+        V_forward_min, V_reverse_max, reverse_ok,
+        L_bank_max, R_bank_max, eta_min_eff: eta_min, di_dt_initial
+      };
+
+      specs.suggested_dielectrics = suggestDielectrics(req.purpose_text);
+      specs.composition = recommendComposition(req, specs);
+      specs.structure   = recommendStructure(req, specs);
+      return specs;
+    }
+
+    function suggestDielectrics(purposeText) {
+      const p = (purposeText || '').toLowerCase();
+      if (p.includes('weld') || p.includes('forming') || p.includes('railgun') || p.includes('launcher') || p.includes('coilgun')) {
+        return ['Pulse polypropylene film', 'Oil-filled pulse capacitors'];
+      }
+      if (p.includes('laser') || p.includes('flashlamp') || p.includes('x-ray') || p.includes('radiograph')) {
+        return ['Pulse polypropylene film', 'High-ripple electrolytic (for charger stage)'];
+      }
+      if (p.includes('medical') || p.includes('mri') || p.includes('ct') || p.includes('imaging')) {
+        return ['Low-inductance polypropylene film'];
+      }
+      if (p.includes('marx') || p.includes('hpm') || p.includes('pfn')) {
+        return ['Pulse polypropylene film', 'High-voltage ceramic stacks'];
+      }
+      return ['Polypropylene pulse film', 'Electrolytic (low-rep, lower peak current)'];
+    }
+
+    function recommendComposition(req, s) {
+      const ratio_L_bank = s.L_bank_max / req.L_eq;
+      const ratio_R_bank = (req.R_eq === 0) ? 0 : (s.R_bank_max / req.R_eq);
+
+      const recs = [];
+      if (ratio_L_bank < 0.1 || (Number.isFinite(req.di_dt_max) && s.di_dt_initial > req.di_dt_max)) {
+        recs.push('Use many small low-inductance capacitors in parallel, arranged in a compact coaxial/laminated bus structure.');
+        recs.push('Keep series count to the minimum needed for voltage; favour parallelism to reduce ESL.');
+      } else {
+        recs.push('Use a modest number of series elements with multiple parallel strings; planar busbars are acceptable but keep loop area small.');
+      }
+
+      if (ratio_R_bank < 0.1 && s.eta_min_eff >= 0.9) {
+        recs.push('Bank ESR must be very low: choose pulse-film capacitors with low-loss dielectric and short, wide connections.');
+      } else if (ratio_R_bank < 0.3) {
+        recs.push('Bank ESR should be moderate: avoid electrolytics in the main pulse path; film capacitors in parallel strings are preferred.');
+      } else {
+        recs.push('ESR requirements are relaxed: electrolytics or mixed technologies may be acceptable for part of the bank (e.g. charger side).');
+      }
+
+      if (s.C_eq > 1e-3) recs.push('Large total capacitance: consider modular sub-banks paralleled at a low-inductance bus.');
+      else if (s.C_eq < 1e-6) recs.push('Very small total capacitance: a single compact film or ceramic module may be sufficient.');
+      else recs.push('Moderate capacitance: a few paralleled pulse-film modules in a low-inductance layout are appropriate.');
+
+      return { recommendations: recs, L_bank_max: s.L_bank_max, R_bank_max: s.R_bank_max, eta_min: s.eta_min_eff, di_dt_initial: s.di_dt_initial };
+    }
+
+    function recommendStructure(req, s) {
+      const V0 = req.V_charge;
+      const d_m = req.d_min_struct;
+      const env = req.environment;
+
+      const rev_frac = (Number.isFinite(s.V_rev_mag) && V0 > 0) ? (Math.abs(s.V_rev_mag) / V0) : req.rev_frac_allowed;
+      const surge_factor = 1.2;
+
+      const V_ins_max = V0 * (1 + rev_frac) * surge_factor;
+      const d_mm = d_m * 1000;
+      const E_req_kV_per_mm = (d_mm > 0) ? ((V_ins_max/1000) / d_mm) : Infinity;
+
+      const recs = [];
+      if (env === 'lab_clean') {
+        if (E_req_kV_per_mm <= 0.5) {
+          recs.push('Clean lab and modest field: air clearance with simple plastic supports is acceptable.');
+          recs.push('Tufnol or acrylic plates can be used mainly for mechanical support and guarding.');
+        } else if (E_req_kV_per_mm <= 2) {
+          recs.push('Field is moderate: use Tufnol/phenolic laminates or G10/FR4 structural insulation; avoid sharp edges and tracking paths.');
+        } else {
+          recs.push('High field in clean lab: prefer G10/epoxy-glass barriers, possibly oil regions or ceramic bushings for highest-stress areas.');
+        }
+      } else if (env === 'industrial') {
+        if (E_req_kV_per_mm <= 0.3) recs.push('Industrial + low field: air + guards may be acceptable, but prefer Tufnol/G10 for robustness.');
+        else if (E_req_kV_per_mm <= 1) recs.push('Industrial + moderate field: use Tufnol or G10/FR4; pay attention to creepage and contamination.');
+        else recs.push('Industrial + high field: use G10/ceramic supports; consider partial oil immersion for hotspots.');
+      } else {
+        if (E_req_kV_per_mm <= 0.2) recs.push('Outdoor + modest field: use Tufnol or G10 supports with generous creepage distances.');
+        else if (E_req_kV_per_mm <= 0.8) recs.push('Outdoor + moderate field: prefer G10/FR4 with large creepage; avoid relying on air in humid/dirty conditions.');
+        else recs.push('Outdoor + high field: consider oil tank or gas-insulated build with G10/ceramic feedthroughs.');
+      }
+
+      return { environment: env, V_ins_max, clearance_mm: d_mm, E_req_kV_per_mm, recommendations: recs };
+    }
+
+    // --------------------------
+    // Printing (printBankSpecs style)
+    // --------------------------
+    function fmt(x, sig=3) {
+      if (x === null || x === undefined) return '—';
+      if (!Number.isFinite(x)) return '—';
+      const ax = Math.abs(x);
+      if (ax !== 0 && (ax < 1e-3 || ax > 1e4)) return x.toExponential(sig);
+      return Number(x.toPrecision(sig)).toString();
+    }
+
+    function run() {
+      const t = purposeTemplate(getStr('purpose'));
+      const req = {
+        purpose_text: t.purpose,
+        V_charge: getNum('V_charge'),
+        L_eq: getNum('L_eq'),
+        R_eq: getNum('R_eq'),
+        pulse_width: getNum('pulse_width'),
+        E_pulse_required: getNum('E_pulse_required'),
+        rep_rate: getNum('rep_rate'),
+        life_shots: getNum('life_shots'),
+        f_supply: getNum('f_supply'),
+        d_min_struct: (getNum('d_min_mm') ?? 20) / 1000,
+        environment: getStr('environment'),
+        switch_type: getStr('switch_type'),
+        safety_factor_voltage: getNum('safV') ?? 0.8,
+        safety_factor_energy: getNum('safE') ?? 0.9,
+        rev_frac_allowed: (getNum('rev_percent') ?? 10) / 100,
+        L_bank_frac_max: (getNum('L_bank_frac_percent') ?? 20) / 100,
+        eta_min: (getNum('eta_min_percent') ?? 90) / 100,
+        di_dt_max: (() => {
+          const v = getNum('di_dt_max_Aus');
+          if (v === null || v <= 0) return Infinity;
+          return v * 1e6;
+        })()
+      };
+
+      const must = ['V_charge','L_eq','R_eq','pulse_width'];
+      for (const k of must) {
+        if (req[k] === null || !Number.isFinite(req[k])) {
+          document.getElementById('out').textContent = `Missing/invalid input: ${k}`;
+          return;
+        }
+      }
+
+      const s = computeBankSpecs(req);
+
+      let out = '';
+      out += '================ CAPACITOR BANK SPECIFICATION ================\n\n';
+      out += `Application          : ${req.purpose_text}\n`;
+      out += `Charge voltage       : ${fmt(req.V_charge)} V\n`;
+      out += `Supply frequency     : ${fmt(req.f_supply)} Hz\n`;
+      out += `Equivalent L (total) : ${fmt(req.L_eq)} H\n`;
+      out += `Equivalent R (total) : ${fmt(req.R_eq)} Ω\n`;
+      out += `Desired t_peak       : ${fmt(req.pulse_width)} s\n`;
+      if (req.E_pulse_required !== null) out += `Required pulse energy: ${fmt(req.E_pulse_required)} J\n`;
+      out += `Switch type          : ${req.switch_type}\n`;
+      out += `Environment          : ${req.environment}\n`;
+      out += `Min clearance to structure : ${fmt(req.d_min_struct*1000)} mm\n\n`;
+
+      out += '--- Required bank parameters (equivalent) ---\n';
+      out += `Capacitance C_eq     : ${fmt(s.C_eq)} F\n`;
+      out += `Stored energy @ V0   : ${fmt(s.E_stored)} J\n`;
+      out += `Natural freq  ω0     : ${fmt(s.omega0)} rad/s\n`;
+      out += `Damping ratio ζ      : ${fmt(s.zeta,4)}\n`;
+      if (Number.isFinite(s.omegad)) {
+        out += `Damped freq  ωd      : ${fmt(s.omegad)} rad/s\n`;
+        out += `t_peak (calculated)  : ${fmt(s.t_peak_calc)} s\n`;
+      }
+      out += `Characteristic Z0    : ${fmt(s.Z0)} Ω\n`;
+      out += `Estimated I_peak     : ${fmt(s.I_peak)} A\n`;
+
+      out += '\n--- Voltage requirements ---\n';
+      out += `Minimum forward rating (per string) : ${fmt(s.V_forward_min)} V\n`;
+      out += `Allowed reverse (requirement)      : ${fmt(s.V_reverse_max)} V (${fmt(req.rev_frac_allowed*100,3)}% of V0)\n`;
+      if (Number.isFinite(s.V_rev_mag)) {
+        out += `Predicted first reverse peak       : ${fmt(s.V_rev_mag)} V (${fmt(s.rev_factor*100,3)}% of V0)\n`;
+        out += `Reverse-voltage requirement        : ${s.reverse_ok ? 'SATISFIED' : '**NOT satisfied**'}\n`;
+      } else {
+        out += 'Circuit overdamped: no oscillatory reverse swing.\n';
+      }
+
+      out += '\n--- Bank ESL/ESR budgets and switch stress ---\n';
+      out += `Max fraction of L_eq allowed in bank : ${fmt(req.L_bank_frac_max*100,3)}% (L_bank_max = ${fmt(s.composition.L_bank_max)} H)\n`;
+      out += `Minimum pulse efficiency to load     : ${fmt(s.composition.eta_min*100,3)}% (R_bank_max ≈ ${fmt(s.composition.R_bank_max)} Ω)\n`;
+      if (Number.isFinite(req.di_dt_max)) {
+        out += `Max allowed di/dt at switch          : ${fmt(req.di_dt_max/1e6)} A/us\n`;
+        out += `Estimated initial di/dt              : ${fmt(s.composition.di_dt_initial/1e6)} A/us\n`;
+      } else {
+        out += `Max allowed di/dt at switch          : (no limit specified)\n`;
+        out += `Estimated initial di/dt              : ${fmt(s.composition.di_dt_initial/1e6)} A/us\n`;
+      }
+
+      out += '\n--- Structural insulation requirement ---\n';
+      out += `Worst-case conductor-to-structure V  : ${fmt(s.structure.V_ins_max/1000)} kV\n`;
+      out += `Clearance used in spec               : ${fmt(s.structure.clearance_mm)} mm\n`;
+      out += `Required dielectric strength         : ${fmt(s.structure.E_req_kV_per_mm,4)} kV/mm\n`;
+      for (const r of s.structure.recommendations) out += `  - ${r}\n`;
+
+      out += '\n--- Lifetime & repetition (for context) ---\n';
+      out += `Target repetition rate : ${fmt(req.rep_rate)} Hz\n`;
+      out += `Target life            : ${fmt(req.life_shots)} shots\n`;
+
+      out += '\n--- Recommended capacitor technology (qualitative) ---\n';
+      for (const d of s.suggested_dielectrics) out += `  - ${d}\n`;
+
+      out += '\n--- Recommended internal bank composition ---\n';
+      for (const r of s.composition.recommendations) out += `  - ${r}\n`;
+
+      out += '\n===============================================================\n';
+      out += 'Use these specs as targets when picking real capacitor parts,\n';
+      out += 'designing the physical bank, and selecting structural insulation.\n';
+
+      document.getElementById('out').textContent = out;
+    }
+
+    // initialise defaults
+    applyTemplate();
   </script>
 </body>
 </html>
